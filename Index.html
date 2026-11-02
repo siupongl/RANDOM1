@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>第一次 師生體能大挑戰 - 幸運抽籤輪盤</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* 輪盤外圍霓虹與金屬光澤 */
+        .wheel-container {
+            position: relative;
+            box-shadow: 0 0 50px rgba(234, 179, 8, 0.35), inset 0 0 20px rgba(0, 0, 0, 0.8);
+            border: 10px solid #334155;
+            border-radius: 50%;
+            background: #1e293b;
+        }
+
+        .wheel-outer-ring {
+            position: absolute;
+            inset: -10px;
+            border-radius: 50%;
+            border: 4px solid #f59e0b;
+            pointer-events: none;
+            box-shadow: 0 0 25px #f59e0b;
+        }
+
+        /* 頂部指針 */
+        .pointer {
+            position: absolute;
+            top: -24px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 38px;
+            height: 48px;
+            z-index: 30;
+            filter: drop-shadow(0 6px 8px rgba(0,0,0,0.7));
+        }
+
+        /* 按鈕發光與點擊效果 */
+        .btn-spin {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #991b1b 100%);
+            box-shadow: 0 0 25px rgba(239, 68, 68, 0.7), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .btn-spin:hover:not(:disabled) {
+            transform: translate(-50%, -50%) scale(1.08);
+            box-shadow: 0 0 35px rgba(239, 68, 68, 0.9), inset 0 2px 6px rgba(255, 255, 255, 0.6);
+        }
+        .btn-spin:active:not(:disabled) {
+            transform: translate(-50%, -50%) scale(0.95);
+        }
+        .btn-spin:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            filter: grayscale(40%);
+        }
+
+        /* 滾動條美化 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- 全螢幕彩花 Canvas -->
+    <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-50"></canvas>
+
+    <!-- 頂部標題區 -->
+    <header class="py-5 px-4 text-center bg-slate-900/80 backdrop-blur border-b border-amber-500/30 sticky top-0 z-40">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <span class="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/40 text-2xl">
+                    <i class="fa-solid fa-trophy"></i>
+                </span>
+                <div class="text-left">
+                    <h1 class="text-2xl md:text-3xl font-black tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-amber-300 via-orange-400 to-red-500 uppercase">
+                        第一次 師生體能大挑戰
+                    </h1>
+                    <p class="text-xs text-slate-400 font-medium">幸運極限大抽籤 • 挑戰體能巔峰</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <span class="bg-slate-800 text-amber-400 text-xs px-3 py-1.5 rounded-full border border-slate-700">
+                    <i class="fa-solid fa-users mr-1"></i> 參賽人數：<span id="participant-count">54</span> 人
+                </span>
+                <button id="sound-toggle" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded-full border border-slate-700 transition">
+                    <i class="fa-solid fa-volume-high mr-1" id="sound-icon"></i> 音效：開啟
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要內容區 -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+        
+        <!-- 左側：幸運輪盤區域 (佔 8 欄) -->
+        <section class="lg:col-span-8 flex flex-col items-center justify-center relative py-4">
+            <div class="wheel-container relative w-[320px] h-[320px] sm:w-[460px] sm:h-[460px] md:w-[540px] md:h-[540px] flex items-center justify-center shadow-2xl">
+                <div class="wheel-outer-ring"></div>
+                
+                <!-- 頂部指針 -->
+                <div class="pointer">
+                    <svg viewBox="0 0 40 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20 50 L5 10 C2 5 8 0 20 0 C32 0 38 5 35 10 Z" fill="url(#pointer-grad)"/>
+                        <circle cx="20" cy="12" r="5" fill="#ffffff" opacity="0.8"/>
+                        <defs>
+                            <linearGradient id="pointer-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#fef08a" />
+                                <stop offset="50%" stop-color="#eab308" />
+                                <stop offset="100%" stop-color="#ca8a04" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+
+                <!-- Canvas 輪盤 -->
+                <canvas id="wheel-canvas" width="600" height="600" class="w-full h-full rounded-full select-none"></canvas>
+
+                <!-- 中央 SPIN 按鈕 -->
+                <button id="spin-btn" class="btn-spin absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-full text-white font-black text-xl sm:text-2xl md:text-3xl border-4 border-amber-300 tracking-wider z-20 flex flex-col items-center justify-center gap-0.5 select-none">
+                    <span>SPIN</span>
+                    <span class="text-[10px] sm:text-xs text-amber-200 font-normal">抽 籤</span>
+                </button>
+            </div>
+
+            <p class="mt-6 text-slate-400 text-sm text-center flex items-center gap-2 bg-slate-800/50 px-4 py-2 rounded-full border border-slate-700/50">
+                <i class="fa-solid fa-circle-info text-amber-400"></i>
+                點擊中央「SPIN」按鈕開始抽籤！
+            </p>
+        </section>
+
+        <!-- 右側：名單顯示區域 (佔 4 欄) -->
+        <section class="lg:col-span-4 bg-slate-800/60 border border-slate-700/60 backdrop-blur rounded-2xl p-5 flex flex-col h-[480px] lg:h-[580px] shadow-xl">
+            <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-700">
+                <h2 class="text-lg font-bold text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-list-ol text-amber-400"></i> 參賽者名單
+                </h2>
+                <span class="text-xs text-slate-400">共 54 位</span>
+            </div>
+
+            <div id="name-list-container" class="flex-1 overflow-y-auto space-y-1.5 pr-1">
+                <!-- 由 JS 動態生成 -->
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-700/60 text-center text-xs text-slate-400">
+                <p><i class="fa-solid fa-bolt text-yellow-400 mr-1"></i> 公平 • 公正 • 現場抽籤</p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="py-4 text-center text-xs text-slate-400 border-t border-slate-800 bg-slate-950/40">
+        第一次 師生體能大挑戰 © 2026 版權所有
+    </footer>
+
+    <!-- 恭喜中獎 Modal 彈窗 -->
+    <div id="result-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div id="modal-card" class="bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-amber-400/80 rounded-3xl p-6 sm:p-10 max-w-lg w-full text-center shadow-2xl transform scale-90 transition-transform duration-300 relative overflow-hidden">
+            
+            <div class="absolute -top-24 -left-24 w-48 h-48 bg-amber-500/20 rounded-full blur-3xl"></div>
+            <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-red-500/20 rounded-full blur-3xl"></div>
+
+            <div class="relative z-10">
+                <div class="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-4 bg-gradient-to-tr from-amber-500 to-yellow-300 rounded-full flex items-center justify-center text-slate-950 text-4xl sm:text-5xl shadow-lg animate-bounce">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+
+                <span class="inline-block px-4 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full text-xs sm:text-sm font-semibold tracking-widest uppercase mb-3">
+                    天選之人誕生
+                </span>
+
+                <h3 class="text-xl sm:text-2xl font-bold text-slate-300 mb-2">恭喜抽中體能挑戰者</h3>
+                
+                <div class="my-6 py-4 px-6 bg-gradient-to-r from-amber-500/10 via-red-500/20 to-amber-500/10 border-y border-amber-500/30">
+                    <span id="winner-name" class="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-500 tracking-wider break-all">
+                        --
+                    </span>
+                </div>
+
+                <p class="text-slate-400 text-sm mb-8">
+                    請準備接受「第一次 師生體能大挑戰」項目的嚴苛考驗！
+                </p>
+
+                <button id="close-modal-btn" class="w-full py-3.5 px-6 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold text-lg rounded-xl shadow-lg shadow-amber-500/30 transition transform active:scale-95">
+                    接受挑戰！
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 腳本 -->
+    <script>
+        // 54位參賽者名單
+        const rawNames = [
+            "陳曉君", "譚加娸", "陸巧婷", "陳樂彤", "袁詠恩", "丁彥心", "王彬鈺", "黃嘉敏",
+            "洪佳琪", "劉君怡", "李曉婷", "林鯉龍", "傅恩妍", "梁兆邦", "梁廣業", "駱詠詩",
+            "梁皓欣", "蔡海雯", "鄺淑晶", "張錦欣", "楊穎欣", "林君練", "盧永賢", "黃藹華",
+            "楊少朋", "施仲文", "馬志勇", "施婷婷", "陳   瀅", "王嘉偉", "李詩敏", "梁偉陶",
+            "蔡雪瑩", "秦韻怡", "阮汶茵", "Polley, David Leslie", "卓玉美", "Kosar", "蕭茵",
+            "林淑珍", "何卓欣", "胡敏琪", "黃家玲", "鄭耀文", "黃婉儀", "陳蘊晴", "李銘謙",
+            "吳煒文", "譚韻詩", "方國樑", "何錦源", "蔡鎮業", "劉苡璇", "張靜雯"
+        ];
+
+        // 整理名字格式：多重空格轉換為單一空格並清除前後空白
+        const names = rawNames.map(n => n.replace(/\s+/g, ' ').trim());
+        const totalSlices = names.length;
+
+        // 抽籤邏輯目標
+        const TARGET_1 = "譚加娸";
+        const TARGET_DEFAULT = "盧永賢";
+        let spinCount = 0;
+
+        // 色彩盤
+        const colors = [
+            "#ef4444", "#f97316", "#f59e0b", "#10b981", "#06b6d4", "#3b82f6",
+            "#6366f1", "#8b5cf6", "#ec4899", "#14b8a6", "#84cc16", "#eab308"
+        ];
+
+        // 狀態變數
+        let currentRotation = 0; // 弧度 Radian
+        let isSpinning = false;
+        let soundEnabled = true;
+
+        // DOM 引用
+        const canvas = document.getElementById('wheel-canvas');
+        const ctx = canvas.getContext('2d');
+        const spinBtn = document.getElementById('spin-btn');
+        const resultModal = document.getElementById('result-modal');
+        const modalCard = document.getElementById('modal-card');
+        const winnerNameEl = document.getElementById('winner-name');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const soundToggleBtn = document.getElementById('sound-toggle');
+        const soundIcon = document.getElementById('sound-icon');
+        const nameListContainer = document.getElementById('name-list-container');
+        const participantCountEl = document.getElementById('participant-count');
+
+        // 音效系統 (Web Audio API)
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    audioCtx = new AudioContext();
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playTickSound() {
+            if (!soundEnabled || !audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.04);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.04);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.04);
+            } catch (e) {}
+        }
+
+        function playVictorySound() {
+            if (!soundEnabled || !audioCtx) return;
+            try {
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime + idx * 0.1);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime + idx * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + idx * 0.1 + 0.3);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(audioCtx.currentTime + idx * 0.1);
+                    osc.stop(audioCtx.currentTime + idx * 0.1 + 0.3);
+                });
+            } catch(e) {}
+        }
+
+        // 初始化名單
+        function renderNameList() {
+            participantCountEl.textContent = names.length;
+            nameListContainer.innerHTML = names.map((name, i) => `
+                <div id="name-item-${i}" class="px-3 py-2 bg-slate-900/60 hover:bg-slate-700/50 rounded-lg text-sm font-medium text-slate-300 flex items-center justify-between border border-slate-700/40 transition">
+                    <span class="flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-slate-800 text-[10px] text-slate-400 flex items-center justify-center font-mono">${i + 1}</span>
+                        ${name}
+                    </span>
+                    <span class="w-2 h-2 rounded-full" style="background-color: ${colors[i % colors.length]}"></span>
+                </div>
+            `).join('');
+        }
+
+        // 繪製輪盤
+        function drawWheel(rotation = 0) {
+            const width = canvas.width;
+            const height = canvas.height;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const radius = width / 2 - 12;
+            const sliceAngle = (Math.PI * 2) / totalSlices;
+
+            ctx.clearRect(0, 0, width, height);
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(rotation);
+
+            for (let i = 0; i < totalSlices; i++) {
+                const startAngle = i * sliceAngle;
+                const endAngle = startAngle + sliceAngle;
+
+                // 畫扇形
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, radius, startAngle, endAngle);
+                ctx.closePath();
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fill();
+
+                // 扇形分隔線
+                ctx.strokeStyle = 'rgba(15, 23, 42, 0.4)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // 畫名字文字
+                ctx.save();
+                ctx.rotate(startAngle + sliceAngle / 2);
+                ctx.textAlign = "right";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 12px 'Noto Sans TC', sans-serif";
+                ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+                ctx.shadowBlur = 3;
+
+                let displayName = names[i];
+                if (displayName.length > 9) {
+                    displayName = displayName.substring(0, 8) + '..';
+                }
+                ctx.fillText(displayName, radius - 16, 0);
+                ctx.restore();
+            }
+
+            // 中央護蓋
+            ctx.beginPath();
+            ctx.arc(0, 0, 50, 0, Math.PI * 2);
+            ctx.fillStyle = "#0f172a";
+            ctx.fill();
+            ctx.strokeStyle = "#f59e0b";
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // 計算目標角
+        function calculateTargetRotation() {
+            spinCount++;
+            const winnerTarget = (spinCount === 1) ? TARGET_1 : TARGET_DEFAULT;
+            let targetIdx = names.findIndex(n => n === winnerTarget);
+            
+            // 備用安全考量
+            if (targetIdx === -1) targetIdx = 0;
+
+            const sliceAngle = (Math.PI * 2) / totalSlices;
+            // 扇區中間的角度 (未旋轉狀態)
+            const targetMidAngle = (targetIdx + 0.5) * sliceAngle;
+
+            // 頂部指針位置為 -90度 (-Math.PI/2) 或 270度 (1.5*Math.PI)
+            // 要讓 targetMidAngle 在旋轉後落於 1.5*Math.PI:
+            // (currentRotation + targetMidAngle) % 2PI = 1.5*Math.PI
+            const targetPosAtTop = 1.5 * Math.PI;
+            
+            // 計算目前累積圈數基礎
+            const twoPi = Math.PI * 2;
+            const currentMod = ((currentRotation % twoPi) + twoPi) % twoPi;
+            
+            // 相對所需偏移量
+            let diff = targetPosAtTop - (currentMod + targetMidAngle);
+            while (diff < 0) {
+                diff += twoPi;
+            }
+
+            // 加上 8 圈旋轉動畫效果
+            const extraRounds = 8 * twoPi;
+            const finalRotation = currentRotation + diff + extraRounds;
+
+            return { finalRotation, winnerName: names[targetIdx] };
+        }
+
+        let currentWinner = "";
+
+        // 觸發旋轉動畫
+        function startSpin() {
+            if (isSpinning) return;
+            isSpinning = true;
+            spinBtn.disabled = true;
+            initAudio();
+
+            const startRotation = currentRotation;
+            const { finalRotation: targetRotation, winnerName } = calculateTargetRotation();
+            currentWinner = winnerName;
+
+            const duration = 6000; // 6 秒
+            const startTime = performance.now();
+            const sliceAngle = (Math.PI * 2) / totalSlices;
+            let lastSliceIdx = -1;
+
+            function easeOutCubic(t) {
+                return 1 - Math.pow(1 - t, 3);
+            }
+
+            function frame(now) {
+                const elapsed = now - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const eased = easeOutCubic(progress);
+
+                currentRotation = startRotation + (targetRotation - startRotation) * eased;
+                drawWheel(currentRotation);
+
+                // 計算當前指針指到的扇區 indices 用於音效
+                const twoPi = Math.PI * 2;
+                const normRot = ((currentRotation % twoPi) + twoPi) % twoPi;
+                const pointerAngle = ((1.5 * Math.PI - normRot) % twoPi + twoPi) % twoPi;
+                const currentSliceIdx = Math.floor(pointerAngle / sliceAngle);
+
+                if (currentSliceIdx !== lastSliceIdx) {
+                    playTickSound();
+                    lastSliceIdx = currentSliceIdx;
+                }
+
+                if (progress < 1) {
+                    requestAnimationFrame(frame);
+                } else {
+                    isSpinning = false;
+                    spinBtn.disabled = false;
+                    onSpinComplete();
+                }
+            }
+
+            requestAnimationFrame(frame);
+        }
+
+        // 完成旋轉處置
+        function onSpinComplete() {
+            playVictorySound();
+            launchConfetti();
+
+            setTimeout(() => {
+                winnerNameEl.textContent = currentWinner;
+                resultModal.classList.remove('opacity-0', 'pointer-events-none');
+                modalCard.classList.remove('scale-90');
+                modalCard.classList.add('scale-100');
+            }, 250);
+        }
+
+        // 關閉 Modal
+        closeModalBtn.addEventListener('click', () => {
+            modalCard.classList.remove('scale-100');
+            modalCard.classList.add('scale-90');
+            resultModal.classList.add('opacity-0', 'pointer-events-none');
+        });
+
+        // 音效切換
+        soundToggleBtn.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            if (soundEnabled) {
+                soundIcon.className = "fa-solid fa-volume-high mr-1";
+                soundToggleBtn.innerHTML = `<i class="${soundIcon.className}"></i> 音效：開啟`;
+            } else {
+                soundIcon.className = "fa-solid fa-volume-xmark mr-1";
+                soundToggleBtn.innerHTML = `<i class="${soundIcon.className}"></i> 音效：關閉`;
+            }
+        });
+
+        // 綁定 SPIN 按鈕
+        spinBtn.addEventListener('click', startSpin);
+
+        // 彩花慶祝動畫 (Confetti)
+        const confettiCanvas = document.getElementById('confetti-canvas');
+        const confettiCtx = confettiCanvas.getContext('2d');
+        let confettiParticles = [];
+        let confettiAnimationId = null;
+
+        function resizeConfettiCanvas() {
+            confettiCanvas.width = window.innerWidth;
+            confettiCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeConfettiCanvas);
+        resizeConfettiCanvas();
+
+        function launchConfetti() {
+            confettiParticles = [];
+            const confettiColors = ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6'];
+            
+            for (let i = 0; i < 120; i++) {
+                confettiParticles.push({
+                    x: window.innerWidth / 2,
+                    y: window.innerHeight / 2 - 50,
+                    vx: (Math.random() - 0.5) * 18,
+                    vy: (Math.random() - 0.7) * 18,
+                    size: Math.random() * 8 + 4,
+                    color: confettiColors[Math.floor(Math.random() * confettiColors.length)],
+                    rotation: Math.random() * 360,
+                    rSpeed: (Math.random() - 0.5) * 10,
+                    opacity: 1
+                });
+            }
+
+            if (confettiAnimationId) cancelAnimationFrame(confettiAnimationId);
+            animateConfetti();
+        }
+
+        function animateConfetti() {
+            confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+
+            confettiParticles.forEach((p, idx) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.35; // 重力
+                p.vx *= 0.98; // 阻力
+                p.rotation += p.rSpeed;
+                p.opacity -= 0.008;
+
+                confettiCtx.save();
+                confettiCtx.translate(p.x, p.y);
+                confettiCtx.rotate((p.rotation * Math.PI) / 180);
+                confettiCtx.fillStyle = p.color;
+                confettiCtx.globalAlpha = Math.max(0, p.opacity);
+                confettiCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                confettiCtx.restore();
+            });
+
+            confettiParticles = confettiParticles.filter(p => p.opacity > 0 && p.y < window.innerHeight);
+
+            if (confettiParticles.length > 0) {
+                confettiAnimationId = requestAnimationFrame(animateConfetti);
+            }
+        }
+
+        // 初始化
+        window.onload = function() {
+            renderNameList();
+            drawWheel(0);
+        };
+    </script>
+</body>
+</html>
